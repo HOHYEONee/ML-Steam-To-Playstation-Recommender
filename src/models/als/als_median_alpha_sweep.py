@@ -36,6 +36,9 @@ def evaluate_grid(alpha):
     val_matrix, val_users = median.build_validation_matrix(
         observed, prep["game_ids"], prep["game_to_idx"]
     )
+    # The original helper uses c=3 for observed fold-in entries.
+    # Rescale here so both training and fold-in use the tested alpha.
+    val_matrix.data.fill(1.0 + float(alpha))
     combinations = [("Binary", 0.0)]
     combinations += [(m, b) for m in median.MODES for b in median.BETAS]
 
@@ -102,6 +105,8 @@ def evaluate_ps():
     ps_matrix, ps_users = median.build_ps_matrix(
         observed, prep["game_ids"], prep["game_to_idx"]
     )
+    # Keep PS fold-in ownership confidence aligned with Steam training.
+    ps_matrix.data.fill(1.0 + alpha)
 
     results = []
     for candidate_mode, candidate_beta in [(mode, beta), ("Binary", 0.0)]:
