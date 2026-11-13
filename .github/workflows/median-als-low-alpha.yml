@@ -1,0 +1,72 @@
+name: Median ALS low alpha final sweep
+
+on:
+  push:
+    branches:
+      - experiment/low-alpha-als
+    paths:
+      - ".github/workflows/median-als-low-alpha.yml"
+  workflow_dispatch:
+
+jobs:
+  steam-grid:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        alpha: ["0.5", "1.0", "1.5", "2.0"]
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install "numpy>=2,<3" "pandas>=2.2,<4" "scipy>=1.14,<2" "pyarrow>=18" "implicit==0.7.3"
+      - name: Run low-alpha grid
+        run: python -u src/models/als/als_median_low_alpha.py --phase grid --alpha ${{ matrix.alpha }}
+      - name: Upload grid
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: low-alpha-${{ matrix.alpha }}
+          path: data/results/als_median_low_alpha_*_grid.csv
+          if-no-files-found: warn
+
+  ps-evaluation:
+    needs: steam-grid
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: low-alpha-*
+          merge-multiple: true
+          path: data/results
+      - name: Install dependencies
+        run: python -m pip install "numpy>=2,<3" "pandas>=2.2,<4" "scipy>=1.14,<2" "pyarrow>=18" "implicit==0.7.3"
+      - name: Select Steam winner and evaluate PS
+        run: python -u src/models/als/als_median_low_alpha.py --phase ps
+      - name: Upload final results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: low-alpha-final-results
+          path: |
+            data/results/als_median_low_alpha_full_grid.csv
+            data/results/als_median_low_alpha_ps_test.csv
+          if-no-files-found: warn
