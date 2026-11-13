@@ -1,0 +1,39 @@
+name: Median ALS 3-mode experiment
+on:
+  push:
+    branches:
+      - experiment/game-median-als
+    paths:
+      - "src/models/als/als_median_experiment.py"
+      - ".github/workflows/median-als-experiment.yml"
+  workflow_dispatch:
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install experiment dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "numpy>=2,<3" "pandas>=2.2,<4" "scipy>=1.14,<2" "pyarrow>=18" "implicit==0.7.3"
+      - name: Run nine Steam configurations and one PS test
+        run: python -u src/models/als/als_median_experiment.py
+      - name: Upload experimental results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: median-als-experiment-results
+          path: |
+            data/results/als_median_gridsearch.csv
+            data/results/als_median_ps_test.csv
+          if-no-files-found: warn
